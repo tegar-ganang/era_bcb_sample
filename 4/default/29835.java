@@ -1,0 +1,135 @@
+import genj.gedcom.Fam;
+import genj.gedcom.Indi;
+import genj.report.Report;
+import genj.util.swing.Action2;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.nio.charset.Charset;
+import java.util.LinkedList;
+
+/**
+ * GenJ - ReportPSCirc
+ * adapted from LifeLines ps-fan report
+ *
+ * TODO Daniel
+ * - multipages split (ne pas oublier gsave grestore )
+* - intergre la fenetre de choix de fichier
+ */
+public class ReportLinesFan extends Report {
+
+    private PrintWriter out;
+
+    private static final Charset CHARSET = Charset.forName("ISO-8859-1");
+
+    public int genPerPage = 6;
+
+    public int reportMaxGenerations = 999;
+
+    public boolean useColors = true;
+
+    private int pageNo;
+
+    private LinkedList indiList = new LinkedList();
+
+    /**
+     * Helper - Create a PrintWriter wrapper for output stream
+     */
+    private PrintWriter getWriter(OutputStream out) {
+        return new PrintWriter(new OutputStreamWriter(out, CHARSET));
+    }
+
+    /**
+     * Main for argument individual
+     */
+    public void start(Indi indi) {
+        File file = getFileFromUser(translate("output.file"), Action2.TXT_OK, true);
+        if (file == null) return;
+        try {
+            out = getWriter(new FileOutputStream(file));
+            Reader in = new InputStreamReader(getClass().getResourceAsStream("ps-fan.ps"));
+            int c;
+            out.println("%!PS-Adobe-3.0");
+            out.println("%%Creator: genj 1.0");
+            out.println("%%CreationDate: ");
+            out.println("%%PageOrder: Ascend");
+            out.println("%%Orientation: Landscape");
+            out.println("%%EndComments");
+            out.println("/maxlevel " + genPerPage + " def");
+            out.println("/color " + (useColors ? "true" : "false") + " def");
+            while ((c = in.read()) != -1) out.write(c);
+            in.close();
+        } catch (IOException ioe) {
+            System.err.println("IO Exception!");
+            ioe.printStackTrace();
+        }
+        indiList.add(indi);
+        indiList.add(new Integer(1));
+        pageNo = 1;
+        while (!indiList.isEmpty()) {
+            Indi indiIterator = (Indi) (indiList.removeFirst());
+            Integer genIndex = (Integer) (indiList.removeFirst());
+            if (genIndex != null) {
+                out.println("gsave");
+                pedigree(1, genIndex.intValue(), 1, 1, indiIterator);
+                out.println("showpage");
+                pageNo++;
+                out.println("grestore");
+            }
+        }
+        out.flush();
+        out.close();
+        showFileToUser(file);
+    }
+
+    private void pedigree(int in, int gen, int lev, int ah, Indi indi) {
+        if (indi == null) {
+            return;
+        }
+        if (gen > reportMaxGenerations) {
+            return;
+        }
+        out.println("(" + fullname(indi, 1, 1, 50) + ")");
+        if (in < 7) {
+            out.println(" (" + esc(indi.format("BIRT", OPTIONS.getBirthSymbol() + " {$D}")) + ")" + " (" + esc(indi.format("DEAT", OPTIONS.getDeathSymbol() + " {$D}")) + ")");
+        } else if (in == 7) {
+            out.println(" (" + esc(indi.format("BIRT", OPTIONS.getBirthSymbol() + " {$y}")) + ")" + " (" + esc(indi.format("DEAT", OPTIONS.getDeathSymbol() + " {$y}")) + ")");
+        } else {
+            out.println(" () () ");
+        }
+        Fam famc = indi.getFamilyWhereBiologicalChild();
+        if (in < genPerPage || famc == null) {
+            out.println(" " + (in - 1) + " " + (ah - lev) + " i");
+        } else {
+            indiList.add(indi);
+            indiList.add(new Integer(gen));
+            out.println(" " + (in - 1) + " " + (ah - lev) + " " + (indiList.size() / 2 + pageNo) + " j");
+        }
+        if (in < genPerPage) {
+            if (famc == null) {
+                return;
+            }
+            Indi father = famc.getHusband();
+            Indi mother = famc.getWife();
+            pedigree(in + 1, gen + 1, lev * 2, ah * 2, father);
+            pedigree(in + 1, gen + 1, lev * 2, ah * 2 + 1, mother);
+        }
+    }
+
+    private String fullname(Indi indi, int isUpper, int type, int length) {
+        return esc(indi.getName());
+    }
+
+    private String esc(String s) {
+        String result;
+        result = s.replaceAll("\\\\", "\\\\\\\\");
+        result = result.replaceAll("\\(", "\\\\(");
+        result = result.replaceAll("\\)", "\\\\)");
+        return result;
+    }
+}

@@ -1,0 +1,51 @@
+package com.ericsson.xsmp.service.alert;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
+import junit.framework.TestCase;
+
+public class AlertTest extends TestCase {
+
+    String inputString = "000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031000000003100000000310000000031";
+
+    public void testCompress() throws Exception {
+        byte[] input = inputString.getBytes("GBK");
+        System.out.println(input.length);
+        byte[] output = new byte[10240];
+        Deflater compresser = new Deflater(Deflater.BEST_COMPRESSION);
+        compresser.setInput(input);
+        compresser.finish();
+        int compressedDataLength = compresser.deflate(output);
+        System.out.println(compressedDataLength);
+        Inflater decompresser = new Inflater();
+        decompresser.setInput(output, 0, compressedDataLength);
+        byte[] result = new byte[10240];
+        int resultLength = decompresser.inflate(result);
+        decompresser.end();
+        String outputString = new String(result, 0, resultLength, "GBK");
+        System.out.println(outputString);
+    }
+
+    public void testCompress2() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        DeflaterOutputStream deflater = new DeflaterOutputStream(output, new Deflater(Deflater.BEST_COMPRESSION));
+        deflater.write(inputString.getBytes("GBK"));
+        deflater.finish();
+        deflater.flush();
+        byte[] buffer = output.toByteArray();
+        System.out.println(buffer.length);
+        ByteArrayInputStream input = new ByteArrayInputStream(buffer);
+        InflaterInputStream inflater = new InflaterInputStream(input);
+        output.reset();
+        byte[] temparr = new byte[1024];
+        int count = 0;
+        while ((count = inflater.read(temparr)) > 0) output.write(temparr, 0, count);
+        buffer = output.toByteArray();
+        System.out.println(buffer.length);
+        System.out.println(new String(buffer, "GBK"));
+    }
+}

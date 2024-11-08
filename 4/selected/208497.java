@@ -1,0 +1,100 @@
+package net.sf.zorobot.cmd;
+
+import net.sf.zorobot.core.Message;
+import net.sf.zorobot.core.MessageListener;
+import net.sf.zorobot.core.ZorobotCommandObject;
+import net.sf.zorobot.core.ZorobotCommandProvider;
+import net.sf.zorobot.core.ZorobotSystem;
+import net.sf.zorobot.irc.DummyIrc;
+import net.sf.zorobot.irc.IrcInterface;
+import net.sf.zorobot.util.StringUtility;
+
+public class IrcCommand extends ZorobotCommandProvider {
+
+    int pingCmdId, serverCmdId, joinCmdId, leaveCmdId;
+
+    IrcInterface ircInterface = null;
+
+    public IrcCommand() {
+        super();
+        ircInterface = ZorobotSystem.getIrcInterface();
+        if (!(ircInterface instanceof DummyIrc)) {
+            pingCmdId = ZorobotSystem.getNewServiceId();
+            ZorobotCommandObject pingCmd = new ZorobotCommandObject(this, pingCmdId);
+            pingCmd.command = new String[] { "ping" };
+            pingCmd.description = new Message(Message.COLOR1, "Ping");
+            services.add(pingCmd);
+            serverCmdId = ZorobotSystem.getNewServiceId();
+            ZorobotCommandObject serverCmd = new ZorobotCommandObject(this, serverCmdId);
+            serverCmd.command = new String[] { "server" };
+            serverCmd.description = new Message(Message.COLOR1, "Server");
+            services.add(serverCmd);
+            joinCmdId = ZorobotSystem.getNewServiceId();
+            ZorobotCommandObject joinCmd = new ZorobotCommandObject(this, joinCmdId);
+            joinCmd.command = new String[] { "join_channel" };
+            joinCmd.description = new Message(Message.COLOR1, "Ask zorobot to join another channel");
+            services.add(joinCmd);
+            leaveCmdId = ZorobotSystem.getNewServiceId();
+            ZorobotCommandObject leaveCmd = new ZorobotCommandObject(this, leaveCmdId);
+            leaveCmd.command = new String[] { "leave_channel" };
+            leaveCmd.description = new Message(Message.COLOR1, "Ask zorobot to leave the current channel");
+            services.add(leaveCmd);
+        }
+    }
+
+    @Override
+    public void service(int svcId, final String fullCommand, final int channelId, final int msgId, final String source, final MessageListener output) {
+        if (svcId == pingCmdId) {
+            System.out.println("Pinging at channel: " + channelId);
+            new Thread() {
+
+                public void run() {
+                    String result = ircInterface.ping(source);
+                    if (result != null) {
+                        System.out.println("Ping result at channel: " + channelId);
+                        output.message(channelId, msgId, null, new Message(new String[] { Message.COLOR1, source, ", your ping is ", Message.COLOR2, result, Message.COLOR1, " secs" }));
+                    }
+                }
+            }.start();
+        } else if (svcId == serverCmdId) {
+            output.message(channelId, msgId, null, new Message(Message.COLOR1, ircInterface.getServer()));
+        } else if (svcId == joinCmdId) {
+            final String finFullCommand = fullCommand;
+            new Thread() {
+
+                public void run() {
+                    String tokenized[] = StringUtility.tokenize(fullCommand);
+                    if (tokenized.length > 1) {
+                        String channelName = tokenized[1];
+                        if (!channelName.startsWith("#")) channelName = "#" + channelName;
+                        int id = ircInterface.getChannelId(channelName);
+                        if (id < 0) {
+                            try {
+                                id = ircInterface.joinChannel(channelName);
+                                if (id >= 0) {
+                                    try {
+                                        Thread.sleep(5000);
+                                    } catch (Exception e) {
+                                    }
+                                    if (ircInterface.ensureJoin(channelName)) output.message(channelId, msgId, null, new Message("Zorobot has joined " + channelName)); else {
+                                        ircInterface.leaveChannel(ircInterface.getChannelId(channelName));
+                                        output.message(channelId, msgId, null, new Message("Couldn't join " + channelName));
+                                    }
+                                } else {
+                                    output.message(channelId, msgId, null, new Message("Zorobot has joined too many channel, please try again later"));
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                output.message(channelId, msgId, null, new Message(e.getMessage()));
+                            }
+                        } else {
+                            output.message(channelId, msgId, null, new Message("Zorobot is already in that channel"));
+                        }
+                    }
+                }
+            }.start();
+        } else if (svcId == leaveCmdId) {
+            if (ircInterface.leaveChannel(channelId) < 0) output.message(channelId, msgId, null, new Message("You should never use this command in this channel ^^"));
+        }
+    }
+}

@@ -1,0 +1,35 @@
+package synthdrivers.YamahaDX7;
+
+import synthdrivers.YamahaDX7.common.DX7FamilyDevice;
+import synthdrivers.YamahaDX7.common.DX7FamilyPerformanceSingleDriver;
+import core.JSLFrame;
+import core.Patch;
+
+public class YamahaDX7PerformanceSingleDriver extends DX7FamilyPerformanceSingleDriver {
+
+    public YamahaDX7PerformanceSingleDriver() {
+        super(YamahaDX7PerformanceConstants.INIT_PERFORMANCE, YamahaDX7PerformanceConstants.SINGLE_PERFORMANCE_PATCH_NUMBERS, YamahaDX7PerformanceConstants.SINGLE_PERFORMANCE_BANK_NUMBERS);
+    }
+
+    public Patch createNewPatch() {
+        return super.createNewPatch();
+    }
+
+    public void storePatch(Patch p, int bankNum, int patchNum) {
+        if ((((DX7FamilyDevice) (getDevice())).getTipsMsgFlag() & 0x01) == 1) YamahaDX7Strings.dxShowInformation(toString(), YamahaDX7Strings.STORE_SINGLE_PERFORMANCE_STRING);
+        sendPatchWorker(p);
+    }
+
+    public void requestPatchDump(int bankNum, int patchNum) {
+        if ((((DX7FamilyDevice) (getDevice())).getTipsMsgFlag() & 0x01) == 1) YamahaDX7Strings.dxShowInformation(toString(), YamahaDX7Strings.PERFORMANCE_STRING);
+    }
+
+    public JSLFrame editPatch(Patch p) {
+        if ((((DX7FamilyDevice) (getDevice())).getSPBPflag() & 0x01) == 1) {
+            YamahaDX7SysexHelper.mkSysInfoAvail(this, (byte) (getChannel() + 0x10));
+        } else {
+            if ((((DX7FamilyDevice) (getDevice())).getTipsMsgFlag() & 0x01) == 1) YamahaDX7Strings.dxShowInformation(toString(), YamahaDX7Strings.PERFORMANCE_EDITOR_STRING);
+        }
+        return super.editPatch(p);
+    }
+}

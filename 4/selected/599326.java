@@ -1,0 +1,96 @@
+package org.simpleframework.util.select;
+
+import java.nio.channels.SelectableChannel;
+
+/**
+ * The <code>Cancellation</code> object is used to represent a task
+ * that can be executed to cancel an operation. This is used in the
+ * place of a normal <code>Operation</code> to pass for execution
+ * when the operation has expired before the I/O event is was
+ * interested in occurred. Before this is executed the operation is
+ * removed from selection.
+ * 
+ * @author Niall Gallagher
+ */
+class CancelEvent implements Event {
+
+    /**
+    * This is the operation that is to be canceled by this event.
+    */
+    private final Operation task;
+
+    /**
+    * This is the operation object that is to be canceled.
+    */
+    private final Event event;
+
+    /**
+    * Constructor for the <code>Cancellation</code> object. This is
+    * used to create a runnable task that delegates to the cancel
+    * method of the operation. This will be executed asynchronously
+    * by the executor after being removed from selection. 
+    * 
+    * @param task this is the task that is to be canceled by this
+    */
+    public CancelEvent(Event event) {
+        this.task = event.getOperation();
+        this.event = event;
+    }
+
+    /**
+    * This method is executed by the <code>Executor</code> object 
+    * if the operation expires before the required I/O event(s)
+    * have occurred. It is typically used to shutdown the socket
+    * and release any resources associated with the operation.
+    */
+    public void run() {
+        task.cancel();
+    }
+
+    /**
+    * This is used to get the expiry for the operation. The expiry
+    * represents some static time in the future when the event will
+    * expire if it does not become ready. This is used to cancel the
+    * operation so that it does not remain in the distributor.
+    *
+    * @return the remaining time this operation will wait for
+    */
+    public long getExpiry() {
+        return 0;
+    }
+
+    /**
+    * This returns the I/O operations that the event is interested
+    * in as an integer bit mask. When any of these operations are
+    * ready the distributor will execute the provided operation. 
+    * 
+    * @return the integer bit mask of interested I/O operations
+    */
+    public int getInterest() {
+        return event.getInterest();
+    }
+
+    /**
+    * This is the <code>SelectableChannel</code> which is used to 
+    * determine if the operation should be executed. If the channel   
+    * is ready for a given I/O event it can be run. For instance if
+    * the operation is used to perform some form of read operation
+    * it can be executed when ready to read data from the channel.
+    *
+    * @return this returns the channel used to govern execution
+    */
+    public SelectableChannel getChannel() {
+        return event.getChannel();
+    }
+
+    /**
+    * This is used to acquire the <code>Operation</code> that is to
+    * be executed when the required operations are ready. It is the
+    * responsibility of the distributor to invoke the operation.
+    * 
+    * @return the operation to be executed when it is ready
+    */
+    public Operation getOperation() {
+        return task;
+    }
+}
